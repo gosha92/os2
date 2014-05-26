@@ -1,0 +1,21 @@
+#!/bin/bash
+
+width=900
+height=700
+depth=24
+display=42
+
+DISPLAY=:${display} firefox -width $width -height $height http://lostfilm.tv 2>/dev/null &
+Xvfb :${display} -screen 0 ${width}x${height}x${depth} 2>/dev/null &
+
+sleep 20
+
+DISPLAY=:${display} import -window root ./1.jpg
+DISPLAY=:${display} xdotool mousemove $(./button.pl)
+DISPLAY=:${display} xdotool click 1 
+
+sleep 10
+
+DISPLAY=:${display} import -window root ./2.jpg
+
+killall Xvfb firefox

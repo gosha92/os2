@@ -1,0 +1,38 @@
+#!/usr/bin/perl -l
+
+use Image::Magick;
+
+my $image = new Image::Magick;
+$image->Read('1.jpg');
+my $w = $image->Get('width') - 1;
+my $h = $image->Get('height') - 1;
+
+my $border = 5;
+my %h;
+
+for my $x (0..($w - $border)) {
+	for my $y (0..($h - $border)) {
+		my $sum = 0;
+		for my $xx (0..($border - 1)) {
+			for my $yy (0..($border - 1)) {
+				my ($r, $g, $b) = $image->GetPixel(x => $x + $xx, y => $y + $yy);
+				if ($r > 0.8 && $g < 0.3 && $b < 0.3) {
+					$sum += 1;
+				}
+			}
+		}
+		$h{$x.'_'.$y} = $sum;
+	}
+}
+
+my $max = 0;
+my $maxk;
+for my $k (keys %h) {
+	if ($h{$k} > $max) {
+		$max = $h{$k};
+		$maxk = $k;
+	}
+}
+
+# $maxk =~ s/_/ /;
+print $maxk;

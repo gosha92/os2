@@ -1,0 +1,86 @@
+#!/usr/bin/perl -l
+
+use IO::Socket;
+use IPC::SysV;
+
+my $server = new IO::Socket::INET(
+    Proto     => 'tcp',
+    LocalPort => shift,
+    Listen    => SOMAXCONN,
+) or die;
+
+my $fld = shmget(IPC_SHARED, 100, 0770) || die "ERROR[shmget] $!";
+
+if(fork) {
+    my $f = '';
+    $f .= (int rand 2) for (0..99);
+    shmwrite($fld, $f, 0, 100);
+    while (1) {
+        my $field;
+        shmread($fld, $field, 0, 100);
+        $field = &generate($field);
+        shmwrite($fld, $field, 0, 100);
+        sleep 1;
+    }
+} else {
+    while (my $connection = $server->accept) {
+        my $field;
+        shmread($fld, $field, 0, 100);
+        print $connection $field;
+        close $connection;
+    }
+}
+
+while (wait != -1) {};
+
+sub generate {
+    my $field = shift;
+    my @field = split //, $field;
+    my @newfield;
+    for my $y (0..9) {
+        for my $x (0..9) {
+            my $p = 0;
+            unless ($x == 0) {
+                $p += $field[ $y * 10 + $x - 1 ];
+            }
+            unless ($x == 9) {
+                $p += $field[ $y * 10 + $x + 1 ];
+            }
+            unless ($y == 0) {
+                $p += $field[ ($y - 1) * 10 + $x ];
+            }
+            unless ($y == 9) {
+                $p += $field[ ($y + 1) * 10 + $x ];
+            }
+            unless ($x == 0 || $y == 0) {
+                $p += $field[ ($y - 1) * 10 + $x - 1 ];
+            }
+            unless ($x == 9 || $y == 0) {
+                $p += $field[ ($y - 1) * 10 + $x + 1 ];
+            }
+            unless ($x == 0 || $y == 9) {
+                $p += $field[ ($y + 1) * 10 + $x - 1 ];
+            }
+            unless ($x == 9 || $y == 9) {
+                $p += $field[ ($y + 1) * 10 + $x + 1 ];
+            }
+            my $state = $field[ $y * 10 + $x ];
+            my $newstate;
+            if ($state eq '0') {
+                if ($p == 3) {
+                    $newstate = '1';
+                } else {
+                    $newstate = '0';
+                }
+            } else {
+                if ($p == 2 || $p == 3) {
+                    $newstate = '1';
+                } else {
+                    $newstate = '0';
+                }
+            }
+            $newfield[ $y * 10 + $x ] = $newstate;
+        }
+    }
+    return join '', @newfield;
+}

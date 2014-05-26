@@ -1,0 +1,198 @@
+#!/usr/bin/perl -l
+use strict;
+use warnings;
+
+
+use POSIX;
+use Parser;
+
+# a | b | c
+sub exec_pipes {
+	my @c = @_;
+	my $c_first = shift @c;
+	my $c_last = pop @c;
+
+	my ($stdin1, $stdout1) = POSIX::pipe();
+
+	unless (fork) {
+		POSIX::dup2($stdout1, 1);
+		POSIX::close($stdin1);
+		POSIX::close($stdout1);
+		&exec_($c_first);
+		exit 1;
+	}
+
+	for my $c (@c) {
+		my ($stdin2, $stdout2) = POSIX::pipe();
+		unless (fork) {
+			POSIX::dup2($stdin1, 0);
+			POSIX::dup2($stdout2, 1);
+			POSIX::close($stdin1);
+			POSIX::close($stdout1);
+			POSIX::close($stdin2);
+			POSIX::close($stdout2);
+			&exec_($c);
+			exit 1;
+		}
+		POSIX::close($stdin1);
+		POSIX::close($stdout1);
+		($stdin1, $stdout1) = ($stdin2, $stdout2);
+	}
+
+	unless (fork) {
+		POSIX::dup2($stdin1, 0);
+		POSIX::close($stdin1);
+		POSIX::close($stdout1);
+		&exec_($c_last);
+		exit 1;
+	}
+
+	POSIX::close($stdin1);
+	POSIX::close($stdout1);
+
+	while (wait != -1) {};
+}
+
+# a > b
+sub exec_stdout {
+	my ($c, $f) = @_;
+	my $fd = POSIX::open($f, &POSIX::O_WRONLY | &POSIX::O_CREAT | &POSIX::O_TRUNC);
+	exit 1 unless (defined $fd);
+	dup2($fd, 1);
+	POSIX::close($fd);
+	&exec_($c);
+	exit 1;
+}
+
+# a < b
+sub exec_stdin {
+	my ($c, $f) = @_;
+	my $fd = POSIX::open($f, &POSIX::O_RDONLY);
+	exit 1 unless (defined $fd);
+	dup2($fd, 0);
+	POSIX::close($fd);
+	&exec_($c);
+	exit 1;
+}
+
+
+my $pgid;
+$SIG{INT} = sub {
+	if ($pgid) {
+		kill -9, $pgid; # SIGKILL - 9
+	}
+};
+
+sub exec_ {
+	my $c = shift;
+	if (ref $c) {
+		my @c = @{$c};
+		my $type = shift @c;
+		if ($type eq ';') {
+			# # # # # # # # # # # # # #
+			# # exec in new process # #
+			# # # # # # # # # # # # # #
+			for my $c (@c) {
+				my $pid;
+				unless($pid = fork) {
+					# setpgrp;
+					&exec_($c);
+					exit 1;
+				} else {
+					$pgid = $pid;
+				}
+				while (wait != -1) {};
+			}
+			$pgid = undef;
+			exit 0;
+			# # # # # # # # # # # # # #
+			# # # # # # # # # # # # # #
+			# # # # # # # # # # # # # #
+		}
+		if ($type eq '|') {
+			exec_pipes @c;
+		}
+		if ($type eq '<') {
+			exec_stdin $c[0], $c[1];
+		}
+		if ($type eq '>') {
+			exec_stdout $c[0], $c[1];
+		}
+	} else {
+		exec $c;
+	}
+}
+
+unless (@ARGV) {
+	print "\nUSGAE:\n        mybash <bash expression>\n";
+	exit 0;
+}
+my $c = parse( shift );
+exec_ $c;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+__END__
+# my $c = [';', ['|', 'ping 8.8.8.8', 'grep 1'], 'echo sigint_OK'];
+
+# my $c = [
+# ';',
+# 	['|', 'sleep 100', 'sleep 100', 'sleep 100'],
+# 	['|', 'sleep 100', 'sleep 100', 'sleep 100'],
+# 	['|', 'sleep 100', 'sleep 100', 'sleep 100']
+# ];
+
+# my $c = ['|', [';', ['|', 'sleep 1' , 'echo 10'], ['|', 'sleep 1', 'echo 20']], 'grep 0'];
+
+# my $c = ['|', [';', ['|', 'sleep 200' , 'echo 10'], ['|', 'sleep 200' , 'echo 20'] ], 'grep 0'];
+
+# my $c = [';', 'ping 8.8.8.8', 'ping 8.8.8.8'];
+
+# my $c = [';', 'sleep 100', [';', 'sleep 100', 'sleep 100'], 'sleep 100'];
+
+# my $c = [
+# ';',
+# 	[
+# 	'>',
+# 		'echo 123',
+# 		'1.txt'
+# 	],
+# 	[
+# 	'<',
+# 		[
+# 		';',
+# 			'sleep 2',
+# 			[
+# 			'|',
+# 				'grep 1',
+# 				'grep 2'
+# 			]
+# 		],
+# 		'1.txt'
+# 	]
+# ];
+
+my $c = [
+'|',
+	'cat',
+	'grep a',
+	'sort'
+];
+
+exec_ $c;

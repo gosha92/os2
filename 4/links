@@ -1,0 +1,93 @@
+#! /usr/bin/perl -l
+
+++$|;
+
+use strict;
+use warnings;
+
+use File::stat;
+use File::Spec;
+use Cwd qw(abs_path);
+use Term::ANSIColor;
+
+die "\n  " . colored('USAGE:', 'bold') . "\n       links [OPTIONS] <directory>\n
+  " . colored('OPTIONS:', 'bold') . "\n       " . colored('-s', 'bold')  . " - show statistic for symlinks\n
+" if (@ARGV < 1);
+
+my $S = 1;
+
+count_links($ARGV[-1]);
+
+my %inodes;
+sub count_links {
+	my $path = shift;
+	$path = abs_path( File::Spec->rel2abs($path) );
+	$path .= '/' unless $path =~ /\/$/;
+
+	print colored("$path", 'bold green');
+
+	opendir DIR, $path or die "\n$!\n\n";
+	my @dir = readdir DIR or die "\n$!\n\n";
+	closedir DIR;
+
+	my $s = stat($path);
+	$inodes{$s->ino} = 1;
+
+	my @dirs;
+
+	for my $file (@dir) {
+		next if $file =~ /^.{1,2}$/; # . and ..
+		my $s = stat($path.$file);
+		my $inode = $s->ino;
+		my $links = $s->nlink;
+		unless ($inodes{$inode}) {
+			my $inode_ = colored("[$inode]", 'bold');
+			if (-f $path.$file) { # файл
+				# my $file_;
+				# if (-l $path.$file) {
+				# 	$file_ = abs_path($path.$file);
+				# 	$file_ = colored($file_, 'bold blue') . spaces($file_);
+				# } else {
+				# 	$file_ = $file . spaces($file);
+				# }
+				# unless (-l $path.$file) {
+					my $file_ = $file . spaces($file);
+					print "    $inode_  $file_  $links";
+				# }
+			} elsif (-d $path.$file) {
+				unless (-l $path.$file) {
+					my $file_ = $file . spaces($file);
+					print "    $inode_  $file_  $links";
+				}
+				push @dirs, $path.$file;
+			}
+			$inodes{$inode} = 1;
+		}
+		if (-l $path.$file) {
+			if ($S) { # symlink statistic
+				my $ls = lstat $path.$file;
+				my $inode = $ls->ino;
+				next if $inodes{$inode};
+				$inodes{$inode} = 1;
+				my $links = $ls->nlink;
+				#
+				my $inode_ = colored("[$inode]", 'bold');
+				my $file_ = colored($file, 'bold blue') . spaces($file);
+				print "    $inode_  $file_  $links";
+			}
+		}
+	}
+
+	for my $dir (@dirs) {
+		count_links($dir);
+	}
+
+}
+
+sub spaces {
+	my ($s, $l) = (@_, 15);
+	my $len = length $s;
+
+	my $add = ($len < $l) ? $l - $len : 0;
+	' ' x $add;
+}

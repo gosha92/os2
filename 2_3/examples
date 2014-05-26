@@ -1,0 +1,15 @@
+( ping 8.8.8.8 | grep 1 ) ; echo sigint_OK
+
+( sleep 100 | sleep 100 | sleep 100 ) ; ( sleep 100 | sleep 100 | sleep 100 ) ; ( sleep 100 | sleep 100 | sleep 100 )
+
+( sleep 2 | echo 10 ; sleep 2 | echo 20 ) | grep 0
+
+ping 8.8.8.8 ; ping 8.8.8.8
+
+sleep 100 ; ( sleep 100 ; sleep 100 ) ; sleep 100
+
+echo 123 > 1.txt ; ( sleep 2 ; grep 1 | grep 2 ) < 1.txt
+
+printf 1 > 2.txt ; ( cat < 2.txt | sort ) > 4.txt ; cat 4.txt | grep 1
+
+cat | grep a | sort

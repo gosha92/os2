@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+system('clear');
+
+use IO::Socket::INET;
+
+$| = 1;
+
+my $socket = new IO::Socket::INET (
+    PeerHost => 'localhost',
+    PeerPort => shift,
+    Proto => 'tcp',
+);
+
+shutdown($socket, 1);
+
+my $response = "";
+$socket->recv($response, 100);
+$response =~ tr/01/.*/;
+my @field = ($response =~ /(.{10})/g);
+$, = "\n";
+print @field;
+ 
+$socket->close();
