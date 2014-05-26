@@ -11,7 +11,7 @@ Xvfb :${display} -screen 0 ${width}x${height}x${depth} 2>/dev/null &
 sleep 20
 
 DISPLAY=:${display} import -window root ./1.jpg
-DISPLAY=:${display} xdotool mousemove $(./button.pl)
+DISPLAY=:${display} xdotool mousemove $(perl button)
 DISPLAY=:${display} xdotool click 1 
 
 sleep 10
